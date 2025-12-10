@@ -5,7 +5,8 @@ from typing import Dict
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import Response
-from agent import create_shared_agent, get_agent_info
+from twilio.twiml.voice_response import VoiceResponse, Connect
+from agent import create_shared_agent_async, get_agent_info
 
 load_dotenv()
 
@@ -26,24 +27,29 @@ async def root():
 
 @app.post("/twiml")
 async def twiml_endpoint(request: Request):
-    """Returns TwiML with ConversationRelay configuration."""
+    """Returns TwiML with ConversationRelay configuration using Twilio helper library."""
+    form_data = await request.form()
+    from_number = form_data.get("From", "unknown")
+
+    print(f"Incoming call from: {from_number}")
+
     base_url = str(request.base_url).rstrip('/')
     ws_url = base_url.replace("http://", "wss://").replace("https://", "wss://")
     ws_url = f"{ws_url}/ws"
 
-    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Connect>
-        <ConversationRelay
-            url="{ws_url}"
-            welcomeGreeting="Hello! I'm your AI assistant. How can I help you today?"
-            language="en-US"
-            voice="Polly.Joanna-Neural"
-            dtmfDetection="true" />
-    </Connect>
-</Response>"""
+    response = VoiceResponse()
+    connect = Connect()
+    conversation_relay = connect.conversation_relay(
+        url=ws_url,
+        welcome_greeting="Hello! I'm your AI assistant. How can I help you today?",
+        language="en-GB",
+        voice="Amy-Generative",
+        dtmf_detection=True
+    )
+    conversation_relay.parameter(name="caller_phone", value=from_number)
+    response.append(connect)
 
-    return Response(content=twiml, media_type="application/xml")
+    return Response(content=str(response), media_type="application/xml")
 
 
 @app.websocket("/ws")
@@ -55,7 +61,8 @@ async def websocket_endpoint(websocket: WebSocket):
         "call_sid": None,
         "session_id": None,
         "agent": None,
-        "config": None
+        "config": None,
+        "db_conn": None
     }
 
     try:
@@ -69,11 +76,18 @@ async def websocket_endpoint(websocket: WebSocket):
                 session_data["call_sid"] = data.get("callSid")
                 session_data["session_id"] = data.get("sessionId")
 
-                thread_id = session_data["call_sid"]
-                session_data["config"] = {"configurable": {"thread_id": thread_id}}
-                session_data["agent"] = create_shared_agent()
+                custom_params = data.get("customParameters", {})
+                caller_phone = custom_params.get("caller_phone", session_data["call_sid"])
 
-                print(f"Setup complete - CallSid: {session_data['call_sid']}, SessionId: {session_data['session_id']}")
+                thread_id = caller_phone
+                session_data["config"] = {"configurable": {"thread_id": thread_id}}
+
+                agent, db_conn = await create_shared_agent_async()
+                session_data["agent"] = agent
+                session_data["db_conn"] = db_conn
+
+                print(f"Setup complete - CallSid: {session_data['call_sid']}, Phone: {caller_phone}, SessionId: {session_data['session_id']}")
+                print(f"Using thread_id: {thread_id} (memory will persist across calls from this number)")
                 active_sessions[session_data["session_id"]] = session_data
 
             elif msg_type == "prompt":
@@ -87,21 +101,37 @@ async def websocket_endpoint(websocket: WebSocket):
                 config = session_data["config"]
 
                 if agent and config:
-                    result = agent.invoke(
+                    print("Streaming response...")
+                    full_response = ""
+
+                    async for chunk in agent.astream(
                         {"messages": [{"role": "user", "content": voice_prompt}]},
-                        config=config
-                    )
+                        config=config,
+                        stream_mode="messages"
+                    ):
+                        message, _ = chunk
 
-                    agent_response = result['messages'][-1].content
-                    print(f"Agent response: {agent_response}")
+                        if hasattr(message, 'content') and message.content:
+                            token = message.content
+                            full_response += token
 
-                    response_message = {
+                            response_message = {
+                                "type": "text",
+                                "token": token,
+                                "last": False
+                            }
+                            await websocket.send_text(json.dumps(response_message))
+                            print(f"→ Twilio: token='{token}', last=False")
+
+                    final_message = {
                         "type": "text",
-                        "token": agent_response,
+                        "token": "",
                         "last": True
                     }
+                    await websocket.send_text(json.dumps(final_message))
+                    print(f"→ Twilio: token='', last=True")
 
-                    await websocket.send_text(json.dumps(response_message))
+                    print(f"Agent response (complete): {full_response}")
 
             elif msg_type == "interrupt":
                 print(f"User interrupted with: {data.get('utteranceUntilInterrupt', '')}")
@@ -124,6 +154,11 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"Error in WebSocket handler: {str(e)}")
         import traceback
         traceback.print_exc()
+
+    finally:
+        if session_data.get("db_conn"):
+            await session_data["db_conn"].close()
+            print("Database connection closed")
 
 
 if __name__ == "__main__":
