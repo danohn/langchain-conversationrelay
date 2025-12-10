@@ -146,7 +146,8 @@ uv run voice_agent.py
 **agent.py** - The shared "brain"
 - Contains all tool definitions (currently: calculator)
 - Agent configuration (model, system prompt, etc.)
-- `create_shared_agent()` - Creates configured agent
+- `create_shared_agent()` - Creates configured agent (sync, for text interface)
+- `create_shared_agent_async()` - Creates configured agent (async, for voice interface with streaming)
 - `get_agent_info()` - Returns agent metadata
 
 **text_agent.py** - Text interface
@@ -155,10 +156,11 @@ uv run voice_agent.py
 - Session management via command-line arguments
 
 **voice_agent.py** - Voice interface
-- Imports `create_shared_agent()` from agent.py
+- Imports `create_shared_agent_async()` from agent.py
 - FastAPI server with WebSocket endpoint
 - Integrates with Twilio ConversationRelay
-- Automatic session management via Call SID
+- Uses async streaming for low-latency responses
+- Phone number-based session management for cross-call memory
 
 ## Dependencies
 
@@ -166,9 +168,11 @@ uv run voice_agent.py
 - `langchain-openai` - OpenAI integration
 - `langchain-anthropic` - Anthropic Claude integration
 - `langgraph-checkpoint-sqlite` - SQLite-based conversation persistence
+- `aiosqlite` - Async SQLite database operations for streaming
 - `fastapi` - Web framework for HTTP and WebSocket server
 - `uvicorn` - ASGI server for running FastAPI
 - `websockets` - WebSocket protocol implementation
+- `python-multipart` - Form data parsing for FastAPI
 - `twilio` - Twilio SDK for ConversationRelay
 - `python-dotenv` - Environment variable management
 
