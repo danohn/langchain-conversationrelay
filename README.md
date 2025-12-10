@@ -1,4 +1,4 @@
-# LangChain Claude - Agentic Voice AI Demo
+# LangChain & Twilio ConversationRelay - Agentic Voice AI Demo
 
 A Python project demonstrating agentic AI with LangChain 1.x and Twilio ConversationRelay for voice interactions.
 
