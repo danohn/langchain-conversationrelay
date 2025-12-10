@@ -1,8 +1,12 @@
 """Shared LangChain agent brain used by both text and voice interfaces."""
+import os
 import sqlite3
 import aiosqlite
 from langchain.agents import create_agent
 from langchain.tools import tool
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_ollama import ChatOllama
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
@@ -28,8 +32,32 @@ For text interactions, you can be more detailed if needed.
 
 Remember conversation context and refer back to previous exchanges when relevant."""
 
-MODEL = "gpt-4o-mini"
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "openai")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 DB_PATH = "conversations.db"
+
+
+def get_model():
+    """Get configured model instance based on environment variables.
+
+    Returns:
+        Configured LLM instance (ChatOpenAI, ChatAnthropic, or ChatOllama)
+
+    Raises:
+        ValueError: If MODEL_PROVIDER is not supported
+    """
+    if MODEL_PROVIDER == "openai":
+        return ChatOpenAI(model=MODEL_NAME)
+    elif MODEL_PROVIDER == "anthropic":
+        return ChatAnthropic(model=MODEL_NAME)
+    elif MODEL_PROVIDER == "ollama":
+        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        return ChatOllama(model=MODEL_NAME, base_url=base_url)
+    else:
+        raise ValueError(
+            f"Unknown MODEL_PROVIDER: {MODEL_PROVIDER}. "
+            f"Supported providers: openai, anthropic, ollama"
+        )
 
 
 def create_shared_agent(db_path: str = DB_PATH):
@@ -38,7 +66,7 @@ def create_shared_agent(db_path: str = DB_PATH):
     checkpointer = SqliteSaver(conn)
 
     agent = create_agent(
-        model=MODEL,
+        model=get_model(),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         checkpointer=checkpointer
@@ -56,7 +84,7 @@ async def create_shared_agent_async(db_path: str = DB_PATH):
     checkpointer = AsyncSqliteSaver(conn)
 
     agent = create_agent(
-        model=MODEL,
+        model=get_model(),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         checkpointer=checkpointer
@@ -68,7 +96,8 @@ async def create_shared_agent_async(db_path: str = DB_PATH):
 def get_agent_info():
     """Return information about the current agent configuration."""
     return {
-        "model": MODEL,
+        "provider": MODEL_PROVIDER,
+        "model": MODEL_NAME,
         "tools": [tool.name for tool in TOOLS],
         "db_path": DB_PATH,
         "num_tools": len(TOOLS)

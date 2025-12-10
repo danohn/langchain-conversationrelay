@@ -164,13 +164,21 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
 
-    if not os.getenv("OPENAI_API_KEY"):
-        print("Error: OPENAI_API_KEY not found in .env file")
+    info = get_agent_info()
+    provider = info['provider']
+
+    required_keys = {
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+    }
+
+    if provider in required_keys and not os.getenv(required_keys[provider]):
+        print(f"Error: {required_keys[provider]} not found in .env file")
+        print(f"Required for MODEL_PROVIDER={provider}")
         exit(1)
 
-    info = get_agent_info()
     print("Starting ConversationRelay Voice Agent Server...")
-    print(f"Agent Model: {info['model']}")
+    print(f"Agent Provider: {info['provider']}, Model: {info['model']}")
     print(f"Available Tools: {', '.join(info['tools'])}")
     print("\nEndpoints:")
     print("  - Health check: http://localhost:8000/")

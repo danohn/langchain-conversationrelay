@@ -17,10 +17,40 @@ A Python project demonstrating agentic AI with LangChain 1.x and Twilio Conversa
      cp .env.example .env
      ```
    - Update `.env` with your actual API keys:
-     - **Required**: `OPENAI_API_KEY` - Get from [platform.openai.com](https://platform.openai.com/api-keys)
+     - Set `MODEL_PROVIDER` (openai, anthropic, or ollama)
+     - Set `MODEL_NAME` to your desired model
+     - Add corresponding API key:
+       - **OpenAI**: `OPENAI_API_KEY` - Get from [platform.openai.com](https://platform.openai.com/api-keys)
+       - **Anthropic**: `ANTHROPIC_API_KEY` - Get from [console.anthropic.com](https://console.anthropic.com)
+       - **Ollama**: No API key needed, set `OLLAMA_BASE_URL` if not using default
      - **Optional**: `LANGSMITH_API_KEY` - Get from [smith.langchain.com](https://smith.langchain.com)
 
-4. **Enable LangSmith Tracing (Optional)**:
+4. **Choose Your Model Provider**:
+
+   The agent supports multiple LLM providers via environment configuration:
+
+   **OpenAI** (default):
+   ```bash
+   MODEL_PROVIDER=openai
+   MODEL_NAME=gpt-4o-mini
+   OPENAI_API_KEY=sk-proj-...
+   ```
+
+   **Anthropic Claude**:
+   ```bash
+   MODEL_PROVIDER=anthropic
+   MODEL_NAME=claude-3-5-sonnet-20241022
+   ANTHROPIC_API_KEY=sk-ant-...
+   ```
+
+   **Ollama** (local models):
+   ```bash
+   MODEL_PROVIDER=ollama
+   MODEL_NAME=llama3.2
+   OLLAMA_BASE_URL=http://localhost:11434
+   ```
+
+5. **Enable LangSmith Tracing (Optional)**:
    - Sign up at [smith.langchain.com](https://smith.langchain.com)
    - Get your API key from Settings
    - Update `LANGSMITH_API_KEY` in `.env`
@@ -167,6 +197,7 @@ uv run voice_agent.py
 - `langchain` (1.x) - LangChain framework
 - `langchain-openai` - OpenAI integration
 - `langchain-anthropic` - Anthropic Claude integration
+- `langchain-ollama` - Ollama local model integration
 - `langgraph-checkpoint-sqlite` - SQLite-based conversation persistence
 - `aiosqlite` - Async SQLite database operations for streaming
 - `fastapi` - Web framework for HTTP and WebSocket server
@@ -254,5 +285,6 @@ No need to modify `text_agent.py` or `voice_agent.py` - they both use `create_sh
 - [x] Refactor to shared "brain" architecture
 - [x] Implement streaming responses for lower latency
 - [x] Cross-call memory using phone number identification
+- [x] Add support for multiple LLM providers (OpenAI, Anthropic, Ollama)
 - [ ] Add more sophisticated tools for the agent
-- [ ] Add support for multiple LLM providers (Claude, etc.)
+- [ ] Docker containerization for deployment

@@ -8,9 +8,17 @@ load_dotenv()
 
 
 def main():
-    if not os.getenv("OPENAI_API_KEY"):
-        print("Error: OPENAI_API_KEY not found in .env file")
-        print("Please add your OpenAI API key to the .env file")
+    info = get_agent_info()
+    provider = info['provider']
+
+    required_keys = {
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+    }
+
+    if provider in required_keys and not os.getenv(required_keys[provider]):
+        print(f"Error: {required_keys[provider]} not found in .env file")
+        print(f"Required for MODEL_PROVIDER={provider}")
         return
 
     if len(sys.argv) > 1:
@@ -25,9 +33,7 @@ def main():
 
     print(f"Session ID: {session_id}")
     print(f"Conversations saved to: {DB_PATH}")
-
-    info = get_agent_info()
-    print(f"Model: {info['model']}")
+    print(f"Provider: {info['provider']}, Model: {info['model']}")
     print(f"Available tools: {', '.join(info['tools'])}")
 
     config = {"configurable": {"thread_id": session_id}}
