@@ -12,12 +12,24 @@ A Python project demonstrating agentic AI with LangChain 1.x and Twilio Conversa
    ```
 
 3. **Configure Environment Variables**:
-   - Update `.env` with your API keys:
-   ```bash
-   OPENAI_API_KEY=your_openai_api_key_here
-   TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
-   TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
-   ```
+   - Copy the example environment file:
+     ```bash
+     cp .env.example .env
+     ```
+   - Update `.env` with your actual API keys:
+     - **Required**: `OPENAI_API_KEY` - Get from [platform.openai.com](https://platform.openai.com/api-keys)
+     - **Optional**: `LANGSMITH_API_KEY` - Get from [smith.langchain.com](https://smith.langchain.com)
+
+4. **Enable LangSmith Tracing (Optional)**:
+   - Sign up at [smith.langchain.com](https://smith.langchain.com)
+   - Get your API key from Settings
+   - Update `LANGSMITH_API_KEY` in `.env`
+   - View traces at [smith.langchain.com](https://smith.langchain.com) to see:
+     - Complete conversation flows
+     - Token usage and costs
+     - Latency for each step
+     - Tool invocations (calculator calls)
+     - LLM prompts and responses
 
 ## Current Features
 
@@ -29,6 +41,7 @@ An interactive LangChain agent with a calculator tool that demonstrates:
 - Tool binding and automatic invocation
 - **Conversation memory** - remembers context across multiple exchanges
 - **Persistent storage** - saves conversations to SQLite and restores them by session ID
+- **LangSmith tracing** - full observability of agent behavior (optional)
 
 **Run the demo**:
 ```bash
@@ -66,6 +79,7 @@ A production-ready voice agent server that handles phone calls using Twilio Conv
 - **Speech-to-text** and **text-to-speech** handled automatically by ConversationRelay
 - **Persistent memory** - remembers conversations across calls using Call SID
 - **LangChain agent integration** - same calculator tool, voice-optimized responses
+- **LangSmith tracing** - full observability of voice interactions (optional)
 
 **Run the server**:
 ```bash
@@ -117,7 +131,8 @@ uv run voice_agent.py
 ├── text_agent.py        # Interactive text-based interface (CLI)
 ├── voice_agent.py       # Voice interface (ConversationRelay WebSocket)
 ├── pyproject.toml       # Project dependencies (uv)
-├── .env                 # Environment variables (not in git)
+├── .env.example         # Environment variables template (committed)
+├── .env                 # Your actual API keys (not in git)
 ├── conversations.db     # SQLite database (auto-generated, not in git)
 └── README.md           # This file
 ```
