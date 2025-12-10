@@ -1,8 +1,10 @@
 """Shared LangChain agent brain used by both text and voice interfaces."""
 import sqlite3
+import aiosqlite
 from langchain.agents import create_agent
 from langchain.tools import tool
 from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 
 @tool
@@ -31,7 +33,7 @@ DB_PATH = "conversations.db"
 
 
 def create_shared_agent(db_path: str = DB_PATH):
-    """Create and return a LangChain agent with persistent memory."""
+    """Create and return a LangChain agent with persistent memory (sync)."""
     conn = sqlite3.connect(db_path, check_same_thread=False)
     checkpointer = SqliteSaver(conn)
 
@@ -43,6 +45,24 @@ def create_shared_agent(db_path: str = DB_PATH):
     )
 
     return agent
+
+
+async def create_shared_agent_async(db_path: str = DB_PATH):
+    """Create and return a LangChain agent with persistent memory (async).
+
+    Returns tuple of (agent, connection) so connection can be closed later.
+    """
+    conn = await aiosqlite.connect(db_path)
+    checkpointer = AsyncSqliteSaver(conn)
+
+    agent = create_agent(
+        model=MODEL,
+        tools=TOOLS,
+        system_prompt=SYSTEM_PROMPT,
+        checkpointer=checkpointer
+    )
+
+    return agent, conn
 
 
 def get_agent_info():

@@ -5,7 +5,7 @@ from typing import Dict
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import Response
-from agent import create_shared_agent, get_agent_info
+from agent import create_shared_agent_async, get_agent_info
 
 load_dotenv()
 
@@ -55,7 +55,8 @@ async def websocket_endpoint(websocket: WebSocket):
         "call_sid": None,
         "session_id": None,
         "agent": None,
-        "config": None
+        "config": None,
+        "db_conn": None
     }
 
     try:
@@ -71,7 +72,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 thread_id = session_data["call_sid"]
                 session_data["config"] = {"configurable": {"thread_id": thread_id}}
-                session_data["agent"] = create_shared_agent()
+
+                agent, db_conn = await create_shared_agent_async()
+                session_data["agent"] = agent
+                session_data["db_conn"] = db_conn
 
                 print(f"Setup complete - CallSid: {session_data['call_sid']}, SessionId: {session_data['session_id']}")
                 active_sessions[session_data["session_id"]] = session_data
@@ -87,21 +91,35 @@ async def websocket_endpoint(websocket: WebSocket):
                 config = session_data["config"]
 
                 if agent and config:
-                    result = agent.invoke(
+                    print("Streaming response...")
+                    full_response = ""
+
+                    async for chunk in agent.astream(
                         {"messages": [{"role": "user", "content": voice_prompt}]},
-                        config=config
-                    )
+                        config=config,
+                        stream_mode="messages"
+                    ):
+                        message, metadata = chunk
 
-                    agent_response = result['messages'][-1].content
-                    print(f"Agent response: {agent_response}")
+                        if hasattr(message, 'content') and message.content:
+                            token = message.content
+                            full_response += token
 
-                    response_message = {
+                            response_message = {
+                                "type": "text",
+                                "token": token,
+                                "last": False
+                            }
+                            await websocket.send_text(json.dumps(response_message))
+
+                    final_message = {
                         "type": "text",
-                        "token": agent_response,
+                        "token": "",
                         "last": True
                     }
+                    await websocket.send_text(json.dumps(final_message))
 
-                    await websocket.send_text(json.dumps(response_message))
+                    print(f"Agent response (complete): {full_response}")
 
             elif msg_type == "interrupt":
                 print(f"User interrupted with: {data.get('utteranceUntilInterrupt', '')}")
@@ -124,6 +142,11 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"Error in WebSocket handler: {str(e)}")
         import traceback
         traceback.print_exc()
+
+    finally:
+        if session_data.get("db_conn"):
+            await session_data["db_conn"].close()
+            print("Database connection closed")
 
 
 if __name__ == "__main__":

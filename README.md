@@ -77,6 +77,7 @@ The agent:
 A production-ready voice agent server that handles phone calls using Twilio ConversationRelay:
 - **WebSocket server** for real-time bidirectional communication with Twilio
 - **Speech-to-text** and **text-to-speech** handled automatically by ConversationRelay
+- **Streaming responses** - tokens sent as generated for reduced latency
 - **Per-call memory** - remembers context within a single call (Call SID used as session ID)
 - **LangChain agent integration** - same calculator tool, voice-optimized responses
 - **LangSmith tracing** - full observability of voice interactions (optional)
@@ -244,6 +245,6 @@ No need to modify `text_agent.py` or `voice_agent.py` - they both use `create_sh
 - [x] Add persistent memory with SQLite checkpointing
 - [x] Integrate Twilio ConversationRelay WebSocket server
 - [x] Refactor to shared "brain" architecture
+- [x] Implement streaming responses for lower latency
 - [ ] Add more sophisticated tools for the agent
-- [ ] Implement streaming responses for lower latency
 - [ ] Add support for multiple LLM providers (Claude, etc.)
