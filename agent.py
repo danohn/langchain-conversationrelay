@@ -32,8 +32,6 @@ For text interactions, you can be more detailed if needed.
 
 Remember conversation context and refer back to previous exchanges when relevant."""
 
-MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "openai")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 DB_PATH = "conversations.db"
 
 
@@ -46,16 +44,19 @@ def get_model():
     Raises:
         ValueError: If MODEL_PROVIDER is not supported
     """
-    if MODEL_PROVIDER == "openai":
-        return ChatOpenAI(model=MODEL_NAME)
-    elif MODEL_PROVIDER == "anthropic":
-        return ChatAnthropic(model=MODEL_NAME)
-    elif MODEL_PROVIDER == "ollama":
+    model_provider = os.getenv("MODEL_PROVIDER", "openai")
+    model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
+
+    if model_provider == "openai":
+        return ChatOpenAI(model=model_name)
+    elif model_provider == "anthropic":
+        return ChatAnthropic(model=model_name)
+    elif model_provider == "ollama":
         base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        return ChatOllama(model=MODEL_NAME, base_url=base_url)
+        return ChatOllama(model=model_name, base_url=base_url)
     else:
         raise ValueError(
-            f"Unknown MODEL_PROVIDER: {MODEL_PROVIDER}. "
+            f"Unknown MODEL_PROVIDER: {model_provider}. "
             f"Supported providers: openai, anthropic, ollama"
         )
 
@@ -96,8 +97,8 @@ async def create_shared_agent_async(db_path: str = DB_PATH):
 def get_agent_info():
     """Return information about the current agent configuration."""
     return {
-        "provider": MODEL_PROVIDER,
-        "model": MODEL_NAME,
+        "provider": os.getenv("MODEL_PROVIDER", "openai"),
+        "model": os.getenv("MODEL_NAME", "gpt-4o-mini"),
         "tools": [tool.name for tool in TOOLS],
         "db_path": DB_PATH,
         "num_tools": len(TOOLS)
