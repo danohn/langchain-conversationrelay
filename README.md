@@ -78,7 +78,8 @@ A production-ready voice agent server that handles phone calls using Twilio Conv
 - **WebSocket server** for real-time bidirectional communication with Twilio
 - **Speech-to-text** and **text-to-speech** handled automatically by ConversationRelay
 - **Streaming responses** - tokens sent as generated for reduced latency
-- **Per-call memory** - remembers context within a single call (Call SID used as session ID)
+- **Cross-call memory** - remembers conversations across calls from the same phone number
+- **Twilio helper library** - uses Python SDK for TwiML generation
 - **LangChain agent integration** - same calculator tool, voice-optimized responses
 - **LangSmith tracing** - full observability of voice interactions (optional)
 
@@ -111,18 +112,20 @@ uv run voice_agent.py
    - Save
 
 3. **Test the voice agent**:
-   - Call your Twilio phone number
-   - The agent will greet you and respond to your questions
-   - Try: "What is 10 plus 5?" then ask "What was that result?"
-   - Memory persists within a call, but each new call starts fresh (new Call SID = new session)
+   - **First call**: "My name is Daniel. What is 10 plus 5?"
+   - Agent responds: "15"
+   - Hang up
+   - **Second call** (from same number): "What's my name?"
+   - Agent responds: "Your name is Daniel!"
+   - Memory persists across calls from the same phone number!
 
 **How it works**:
-- Twilio receives the call → requests TwiML from `/twiml` endpoint
-- TwiML contains `<ConversationRelay>` pointing to your WebSocket
-- ConversationRelay handles STT/TTS and sends text over WebSocket
-- Server processes text with LangChain agent
-- Agent response is sent back and converted to speech
-- Conversation is saved with Call SID as the session ID (unique per call)
+- Twilio receives the call → sends POST to `/twiml` with `From` parameter (caller's phone number)
+- TwiML endpoint adds phone number as custom parameter to ConversationRelay
+- WebSocket receives setup message with custom parameters
+- Uses phone number as `thread_id` for persistent memory (not Call SID)
+- Conversation history is saved and restored based on caller's phone number
+- Each caller has their own persistent conversation thread
 
 ## Project Structure
 
@@ -203,15 +206,15 @@ User Input → create_shared_agent() → Tool (Calculator) → Response → User
 
 ### Voice Agent Flow (voice_agent.py)
 ```
-Phone Call → Twilio → TwiML Endpoint
+Phone Call → Twilio → TwiML Endpoint (extracts From: phone number)
                          ↓
-                   WebSocket Connection
+         WebSocket Connection + custom parameter (caller_phone)
                          ↓
     ConversationRelay ← → FastAPI Server
     (STT/TTS)              ↓
                     create_shared_agent() → Tools
                          ↓
-                SQLite Persistence (by call_sid - unique per call)
+                SQLite Persistence (by phone number - persists across calls)
 ```
 
 ## Adding New Tools
@@ -246,5 +249,6 @@ No need to modify `text_agent.py` or `voice_agent.py` - they both use `create_sh
 - [x] Integrate Twilio ConversationRelay WebSocket server
 - [x] Refactor to shared "brain" architecture
 - [x] Implement streaming responses for lower latency
+- [x] Cross-call memory using phone number identification
 - [ ] Add more sophisticated tools for the agent
 - [ ] Add support for multiple LLM providers (Claude, etc.)

@@ -5,6 +5,7 @@ from typing import Dict
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import Response
+from twilio.twiml.voice_response import VoiceResponse, Connect
 from agent import create_shared_agent_async, get_agent_info
 
 load_dotenv()
@@ -26,24 +27,29 @@ async def root():
 
 @app.post("/twiml")
 async def twiml_endpoint(request: Request):
-    """Returns TwiML with ConversationRelay configuration."""
+    """Returns TwiML with ConversationRelay configuration using Twilio helper library."""
+    form_data = await request.form()
+    from_number = form_data.get("From", "unknown")
+
+    print(f"Incoming call from: {from_number}")
+
     base_url = str(request.base_url).rstrip('/')
     ws_url = base_url.replace("http://", "wss://").replace("https://", "wss://")
     ws_url = f"{ws_url}/ws"
 
-    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Connect>
-        <ConversationRelay
-            url="{ws_url}"
-            welcomeGreeting="Hello! I'm your AI assistant. How can I help you today?"
-            language="en-US"
-            voice="Polly.Joanna-Neural"
-            dtmfDetection="true" />
-    </Connect>
-</Response>"""
+    response = VoiceResponse()
+    connect = Connect()
+    conversation_relay = connect.conversation_relay(
+        url=ws_url,
+        welcome_greeting="Hello! I'm your AI assistant. How can I help you today?",
+        language="en-GB",
+        voice="Amy-Generative",
+        dtmf_detection=True
+    )
+    conversation_relay.parameter(name="caller_phone", value=from_number)
+    response.append(connect)
 
-    return Response(content=twiml, media_type="application/xml")
+    return Response(content=str(response), media_type="application/xml")
 
 
 @app.websocket("/ws")
@@ -70,14 +76,18 @@ async def websocket_endpoint(websocket: WebSocket):
                 session_data["call_sid"] = data.get("callSid")
                 session_data["session_id"] = data.get("sessionId")
 
-                thread_id = session_data["call_sid"]
+                custom_params = data.get("customParameters", {})
+                caller_phone = custom_params.get("caller_phone", session_data["call_sid"])
+
+                thread_id = caller_phone
                 session_data["config"] = {"configurable": {"thread_id": thread_id}}
 
                 agent, db_conn = await create_shared_agent_async()
                 session_data["agent"] = agent
                 session_data["db_conn"] = db_conn
 
-                print(f"Setup complete - CallSid: {session_data['call_sid']}, SessionId: {session_data['session_id']}")
+                print(f"Setup complete - CallSid: {session_data['call_sid']}, Phone: {caller_phone}, SessionId: {session_data['session_id']}")
+                print(f"Using thread_id: {thread_id} (memory will persist across calls from this number)")
                 active_sessions[session_data["session_id"]] = session_data
 
             elif msg_type == "prompt":
@@ -99,7 +109,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         config=config,
                         stream_mode="messages"
                     ):
-                        message, metadata = chunk
+                        message, _ = chunk
 
                         if hasattr(message, 'content') and message.content:
                             token = message.content
