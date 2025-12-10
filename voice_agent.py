@@ -111,6 +111,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "last": False
                             }
                             await websocket.send_text(json.dumps(response_message))
+                            print(f"→ Twilio: token='{token}', last=False")
 
                     final_message = {
                         "type": "text",
@@ -118,6 +119,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "last": True
                     }
                     await websocket.send_text(json.dumps(final_message))
+                    print(f"→ Twilio: token='', last=True")
 
                     print(f"Agent response (complete): {full_response}")
 
