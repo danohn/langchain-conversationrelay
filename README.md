@@ -77,7 +77,7 @@ The agent:
 A production-ready voice agent server that handles phone calls using Twilio ConversationRelay:
 - **WebSocket server** for real-time bidirectional communication with Twilio
 - **Speech-to-text** and **text-to-speech** handled automatically by ConversationRelay
-- **Persistent memory** - remembers conversations across calls using Call SID
+- **Per-call memory** - remembers context within a single call (Call SID used as session ID)
 - **LangChain agent integration** - same calculator tool, voice-optimized responses
 - **LangSmith tracing** - full observability of voice interactions (optional)
 
@@ -112,8 +112,8 @@ uv run voice_agent.py
 3. **Test the voice agent**:
    - Call your Twilio phone number
    - The agent will greet you and respond to your questions
-   - Try: "What is 10 plus 5?" or "Calculate 7 times 8"
-   - Hang up and call again - the agent remembers your previous conversation!
+   - Try: "What is 10 plus 5?" then ask "What was that result?"
+   - Memory persists within a call, but each new call starts fresh (new Call SID = new session)
 
 **How it works**:
 - Twilio receives the call → requests TwiML from `/twiml` endpoint
@@ -121,7 +121,7 @@ uv run voice_agent.py
 - ConversationRelay handles STT/TTS and sends text over WebSocket
 - Server processes text with LangChain agent
 - Agent response is sent back and converted to speech
-- Conversation is saved with Call SID as the session ID
+- Conversation is saved with Call SID as the session ID (unique per call)
 
 ## Project Structure
 
@@ -210,7 +210,7 @@ Phone Call → Twilio → TwiML Endpoint
     (STT/TTS)              ↓
                     create_shared_agent() → Tools
                          ↓
-                SQLite Persistence (by call_sid)
+                SQLite Persistence (by call_sid - unique per call)
 ```
 
 ## Adding New Tools

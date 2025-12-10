@@ -1,7 +1,7 @@
 [project]
-name = "langchain-claude"
+name = "langchain-conversationrelay"
 version = "0.1.0"
-description = "Add your description here"
+description = "Voice-capable AI agent using LangChain 1.x and Twilio ConversationRelay with persistent memory and dual text/voice interfaces"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
